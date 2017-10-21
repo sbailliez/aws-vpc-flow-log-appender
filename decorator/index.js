@@ -42,7 +42,7 @@ AWS.config.update({ region: process.env.AWS_REGION });
 /**
  * Regular expression to parse VPC Flow Log format.
  */
-const parser = /^(\d) (\d+) (eni-\w+) (\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3}) (\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3}) (\d+) (\d+) (\d+) (\d+) (\d+) (\d+) (\d+) (ACCEPT|REJECT) (OK|NODATA|SKIPDATA)/
+const parser = /^(\d) (\d+|unknown) (eni-\w+) (\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3}) (\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3}) (\d+) (\d+) (\d+) (\d+) (\d+) (\d+) (\d+) (ACCEPT|REJECT) (OK|NODATA|SKIPDATA)/
 
 /**
  * Describes the Network Interfaces associated with this account.
@@ -112,7 +112,7 @@ const extractRecords = (oRecords) => {
         // default vpc flow log data
         '@timestamp':    new Date(),
         'version':       Number(match[1]),
-        'account-id':    Number(match[2]),
+        'account-id':    Number(match[2] == 'unknown' ? 0 : match[2]), // oddly flowlogs sends 'unknown' in the vpc flow logs
         'interface-id':  match[3],
         'srcaddr':       match[4],
         'destaddr':      match[5],
@@ -248,7 +248,7 @@ exports.handler = (event, context, callback) => {
 
   Promise.all([ buildEniToSecurityGroupMapping(), extractRecords(event.records) ])
     .then( (results) => {
-      console.log('Finished building ENI to Security Group Mappig and Extracting Records');
+      console.log('Finished building ENI to Security Group Mapping and Extracting Records');
       return decorateRecords(results[1], results[0])
     })
     .then( (records) => {
@@ -259,7 +259,7 @@ exports.handler = (event, context, callback) => {
       callback(null, { records: records });
     })
     .catch( (error) => {
-      console.error('[ERROR] ' +error);
+      console.error('[ERROR] ' + error);
       callback(error);
     })
 };
